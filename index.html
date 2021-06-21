@@ -1,128 +1,112 @@
 <html>
-<head>
-  <meta charset="utf-8"/>
-  <script src="js/three.js"></script>
-  <!--　WebVRの判定、遷移ボタンのスクリプト　-->
-  <script src="js/WebVR.js"></script>
-  <!--　WebVRのポリフィル　-->
-  <script src="js/webvr-polyfill.js"></script>
-  <script>
+  <head>
+    <meta charset="utf-8" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r127/three.min.js"></script>
+    <script>
       // ページの読み込みを待つ
-      window.addEventListener('DOMContentLoaded', init);
+      window.addEventListener('load', init);
 
       function init() {
-          // ポリフィルを使用
-          const polyfill = new WebVRPolyfill();
+        // サイズを指定
+        const width = 960;
+        const height = 540;
+        let rot = 0; // 角度
 
-          // サイズを指定
-          const width = 960;
-          const height = 540;
+        // レンダラーを作成
+        const renderer = new THREE.WebGLRenderer({
+          canvas: document.querySelector('#myCanvas'),
+        });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(width, height);
 
-          // レンダラーを作成
-          const renderer = new THREE.WebGLRenderer({
-              canvas: document.querySelector('#myCanvas'),
-              antialias:true
+        // シーンを作成
+        const scene = new THREE.Scene();
+
+        // カメラを作成
+        const camera = new THREE.PerspectiveCamera(45, width / height,1,10000);
+        camera.position.set(0, 0, +1000);
+        // 星屑を作成します (カメラの動きをわかりやすくするため)
+        createStarField();
+
+        function createStarField() {
+          // 頂点情報を格納する配列
+          const vertices = [];
+
+          // 配置する範囲
+          const SIZE = 3000;
+          // 配置する個数
+          const LENGTH = 5000;
+
+          for (let i = 0; i < LENGTH; i++) {
+            const x = SIZE * (Math.random() - 0.5);
+            const y = SIZE * (Math.random() - 0.5);
+            const z = SIZE * (Math.random() - 0.5);
+
+            vertices.push(x, y, z);
+          }
+
+          // 形状データを作成
+          const geometry = new THREE.BufferGeometry();
+          geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+
+          // マテリアルを作成
+          const material = new THREE.PointsMaterial({
+            // 一つ一つのサイズ
+            size: 3,
+            // 色
+            color: 0xffffff,
           });
-          renderer.setSize(width, height);
-          
-          // レンダラーのWebVR設定を有効にする
-          renderer.vr.enabled = true;
 
-          const container = document.getElementById('container');
-          container.style.position = "relative";
-          container.style.width = width;
-          container.style.height = height;
+          // 物体を作成
+          const mesh = new THREE.Points(geometry, material);
+          scene.add(mesh);
+        }
 
-          // WebVRの開始ボタンをDOMに追加
-          container.appendChild(WEBVR.createButton(renderer));
+          //create sun
+          const sun = new THREE.SphereGeometry(300,30,30);
+        
+          //load image
+          const sunLoader = new THREE.TextureLoader();
+          const sunTexture = sunLoader.load('sunmap.jpg')
 
-          // シーンを作成
-          const scene = new THREE.Scene();
+          const sunMaterial = new THREE.MeshStandardMaterial({
+            map: texture
+          });
 
-          // カメラを作成
-          const camera = new THREE.PerspectiveCamera(90, width / height);
+          const sunMesh = new THREE.Mesh(sun,sunMaterial);
 
-          // カメラ用コンテナを作成
-          const cameraContainer = new THREE.Object3D();
-          cameraContainer.add(camera);
-          scene.add(cameraContainer);
-          cameraContainer.position.y = 100;
+          scene.add(sunMesh)
 
-          // 光源を作成
-          {
-              const spotLight = new THREE.SpotLight(0xFFFFFF, 4, 2000, Math.PI / 5, 0.2, 1.5);
-              spotLight.position.set(500, 300, 500);
-              scene.add(spotLight);
+          // 平行光源
+          const directionalLight = new THREE.DirectionalLight(0xffffff);
+          directionalLight.position.set(1, 1, 1);
+          // シーンに追加
+          scene.add(directionalLight);
 
-              const ambientLight = new THREE.AmbientLight(0x333333);
-              scene.add(ambientLight);
-          }
-          // 地面を作成
-          {
-              // 床のテクスチャー
-              const texture = new THREE.TextureLoader().load('imgs/floor.png');
-              texture.wrapS = texture.wrapT = THREE.RepeatWrapping; // リピート可能に
-              texture.repeat.set(10, 10); // 10x10マスに設定
-              texture.magFilter = THREE.NearestFilter;
-              const floor = new THREE.Mesh(
-                  new THREE.PlaneGeometry(1000, 1000),
-                  new THREE.MeshStandardMaterial({map: texture, roughness: 0.0, metalness: 0.6}),
-              );
-              floor.rotation.x = -Math.PI / 2;
-              scene.add(floor);
-          }
-          const boxList = [];
-          // 立方体を作成
-          {
-              // 立方体のジオメトリを作成
-              const geometry = new THREE.BoxGeometry(45, 45, 45);
-              // 立方体を複数作成しランダムに配置
-              const num = 60;
-              loop: for (let i = 0; i < num; i++) {
-                  const px = Math.round((Math.random() - 0.5) * 19) * 50 + 25;
-                  const pz = Math.round((Math.random() - 0.5) * 19) * 50 + 25;
-                  for (let j = 0; j < i; j++) {
-                      const box2 = boxList[j];
-                      if(box2.position.x === px && box2.position.z === pz){
-                          i -= 1;
-                          continue loop;
-                      }
-                  }
-                  // 立方体のマテリアルを作成
-                  const material = new THREE.MeshStandardMaterial({color: 0x1000000 * Math.random(), roughness: 0.1, metalness: 0.5});
-                  const box = new THREE.Mesh(geometry, material);
-                  box.position.x = px;
-                  box.position.y = 25;
-                  box.position.z = pz;
-                  scene.add(box);
-                  boxList.push(box);
-              }
-          }
 
-          // レンダラーにループ関数を登録
-          renderer.setAnimationLoop(tick);
-          
-          let time = 0;
-          
-          // 毎フレーム時に実行されるループイベント
-          function tick() {
-              time += 1;
-              
-              // 立方体を動かす
-              const length = boxList.length;
-              for (let i = 0; i < length; i++) {
-                  boxList[i].position.y = 125 + 100 * Math.cos(time * 0.0005 * i + i / 10);
-              }
-              
-              // レンダリング
-              renderer.render(scene, camera);
-          }
+        tick();
+
+        // 毎フレーム時に実行されるループイベントです
+        function tick() {
+          rot += 0.3;
+
+          // ラジアンに変換する
+          const radian = (rot * Math.PI) / 180;
+          // 角度に応じてカメラの位置を設定
+          camera.position.x = 1000 * Math.sin(radian);
+          camera.position.z = 1000 * Math.cos(radian);
+          // 原点方向を見つめる
+          camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+          // レンダリング
+          renderer.render(scene, camera);
+
+          requestAnimationFrame(tick);
+        }
       }
-  </script>
-</head>
-<body>
-<div id="container">
-  <canvas id="myCanvas"></canvas>
-</div>
-</body>
+    </script>
+  </head>
+  <body>
+    <canvas id="myCanvas"></canvas>
+  </body>
 </html>
